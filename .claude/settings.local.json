@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bunx shadcn@latest add:*)",
+      "Bash(printf:*)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Bash(pkill:*)",
+      "Bash(bunx prettier:*)",
+      "Bash(awk:*)",
+      "Bash(cat:*)",
+      "Bash(magick:*)",
+      "Bash(convert:*)",
+      "Bash(node:*)",
+      "Bash(bun remove:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

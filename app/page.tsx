@@ -1,121 +1,346 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ModeToggle } from "@/components/mode-toggle";
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { useAuth } from "@/lib/hooks/use-auth";
+import { useWorkspace } from "@/lib/context/workspace-context";
+import { AuthGuard } from "@/components/auth-guard";
+import { useTasks } from "@/lib/hooks/use-tasks";
+import { useProjects } from "@/lib/hooks/use-projects";
+import { useWorkspaceMembers } from "@/lib/hooks/use-workspace-members";
 import {
-  TerminalSquare,
-  Globe,
-  BookOpen,
-  Rocket,
-  ChevronRight,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Badge } from "@/components/ui/badge";
+import {
+  ListTodo,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  FolderKanban,
+  Users,
+  TrendingUp,
+  Calendar,
+  Target,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
+import Link from "next/link";
+
+const STATUS_COLORS = {
+  todo: "#6b7280",
+  in_progress: "#3b82f6",
+  done: "#10b981",
+  cancelled: "#ef4444",
+};
+
+const PRIORITY_COLORS = {
+  low: "#6b7280",
+  medium: "#f59e0b",
+  high: "#ef4444",
+  urgent: "#dc2626",
+};
 
 export default function Home() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const { user } = useAuth();
+  const { workspace } = useWorkspace();
+  const { tasks, loading: tasksLoading } = useTasks(workspace?.id);
+  const { projects, loading: projectsLoading } = useProjects(workspace?.id);
+  const { members } = useWorkspaceMembers(workspace?.id);
 
-  async function greet() {
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  const userName =
+    user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+
+  // Calculate statistics
+  const totalTasks = tasks.length;
+  const todoTasks = tasks.filter((t) => t.status === "todo").length;
+  const inProgressTasks = tasks.filter(
+    (t) => t.status === "in_progress",
+  ).length;
+  const doneTasks = tasks.filter((t) => t.status === "done").length;
+  const totalProjects = projects.length;
+
+  // Tasks by status for pie chart
+  const tasksByStatus = [
+    { name: "To Do", value: todoTasks, color: STATUS_COLORS.todo },
+    {
+      name: "In Progress",
+      value: inProgressTasks,
+      color: STATUS_COLORS.in_progress,
+    },
+    { name: "Done", value: doneTasks, color: STATUS_COLORS.done },
+    {
+      name: "Cancelled",
+      value: tasks.filter((t) => t.status === "cancelled").length,
+      color: STATUS_COLORS.cancelled,
+    },
+  ].filter((item) => item.value > 0);
+
+  // Tasks by priority for bar chart
+  const tasksByPriority = [
+    { name: "Low", value: tasks.filter((t) => t.priority === "low").length },
+    {
+      name: "Medium",
+      value: tasks.filter((t) => t.priority === "medium").length,
+    },
+    { name: "High", value: tasks.filter((t) => t.priority === "high").length },
+    {
+      name: "Urgent",
+      value: tasks.filter((t) => t.priority === "urgent").length,
+    },
+  ];
+
+  // Completion rate
+  const completionRate =
+    totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+  // Overdue tasks
+  const now = new Date();
+  const overdueTasks = tasks.filter(
+    (t) => t.due_date && new Date(t.due_date) < now && t.status !== "done",
+  ).length;
+
+  // Due today/this week
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const nextWeek = new Date(today);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  const dueTodayTasks = tasks.filter(
+    (t) =>
+      t.due_date &&
+      new Date(t.due_date) >= today &&
+      new Date(t.due_date) < tomorrow &&
+      t.status !== "done",
+  ).length;
+
+  const dueThisWeekTasks = tasks.filter(
+    (t) =>
+      t.due_date &&
+      new Date(t.due_date) >= today &&
+      new Date(t.due_date) < nextWeek &&
+      t.status !== "done",
+  ).length;
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-background text-foreground">
-      {/* Top-right theme toggle */}
-      <div className="absolute top-4 right-4 z-10">
-        <ModeToggle />
-      </div>
-
-      {/* Main card */}
-      <div className="w-full  bg-card rounded-2xl shadow-lg p-8 space-y-8">
+    <AuthGuard>
+      <div className="space-y-8">
         {/* Header */}
-        <header className="text-center space-y-3">
-          <h1 className="text-4xl font-bold tracking-tight leading-snug">
-            🚀 Tauri + Next.js + Tailwind + Shadcn + Bun
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            A lightning-fast cross-platform starter powered by modern tech.
-          </p>
-        </header>
-
-        {/* Stack */}
-        <section className="space-y-2">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            <Rocket className="w-5 h-5" />
-            Tech Stack
-          </h2>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-muted-foreground text-sm">
-            <li className="flex items-center gap-2">
-              <TerminalSquare className="w-4 h-4" />
-              Tauri
-            </li>
-            <li className="flex items-center gap-2">
-              <Globe className="w-4 h-4" />
-              Next.js
-            </li>
-            <li className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" />
-              Shadcn UI
-            </li>
-            <li className="flex items-center gap-2">
-              <TerminalSquare className="w-4 h-4" />
-              Tailwind CSS
-            </li>
-            <li className="flex items-center gap-2">
-              <Rocket className="w-4 h-4" />
-              Bun Runtime
-            </li>
-          </ul>
-        </section>
-        <div className="flex justify-center items-center gap-4 text-muted-foreground text-sm">
-          <span className="flex items-center gap-2 text-2xl">🍎 macOS</span>
-          <span className="flex items-center gap-2 text-2xl">🪟 Windows</span>
-          <span className="flex items-center gap-2 text-2xl">🐧 Linux</span>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">
+              Welcome back, {userName}!
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Here's what's happening with your projects today.
+            </p>
+          </div>
+          <Link href="/tasks">
+            <Button>
+              <ListTodo className="mr-2 h-4 w-4" />
+              View All Tasks
+            </Button>
+          </Link>
         </div>
 
-        {/* Input form */}
-        <section>
-          <form
-            className="flex flex-col sm:flex-row gap-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              greet();
-            }}
-          >
-            <Input
-              id="greet-input"
-              placeholder="Enter a name..."
-              className="flex-grow text-base"
-              onChange={(e) => setName(e.currentTarget.value)}
-            />
-            <Button type="submit" className="text-base">
-              Greet
-            </Button>
-          </form>
+        {/* Stats Grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Tasks</CardTitle>
+              <ListTodo className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalTasks}</div>
+              <p className="text-xs text-muted-foreground">
+                {inProgressTasks} in progress
+              </p>
+            </CardContent>
+          </Card>
 
-          {greetMsg && (
-            <p className="mt-4 text-center text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20 p-3 rounded-md text-lg font-medium">
-              {greetMsg}
-            </p>
-          )}
-        </section>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Completed</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{doneTasks}</div>
+              <p className="text-xs text-muted-foreground">
+                {completionRate}% completion rate
+              </p>
+            </CardContent>
+          </Card>
 
-        {/* Footer / Docs */}
-        <footer className="text-center pt-4 border-t border-border">
-          <a
-            href="https://github.com/nomandhoni-cs/tauri-nextjs-shadcn-boilerplate"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition"
-          >
-            <BookOpen className="w-4 h-4 mr-1" />
-            Read the Docs
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </a>
-        </footer>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Due This Week
+              </CardTitle>
+              <Clock className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dueThisWeekTasks}</div>
+              <p className="text-xs text-muted-foreground">
+                {dueTodayTasks} due today
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Overdue</CardTitle>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{overdueTasks}</div>
+              <p className="text-xs text-muted-foreground">Need attention</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Charts Row */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Tasks by Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Tasks by Status</CardTitle>
+              <CardDescription>
+                Distribution of tasks across different statuses
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              {tasksByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={tasksByStatus}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {tasksByStatus.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No tasks yet
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tasks by Priority */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Tasks by Priority</CardTitle>
+              <CardDescription>
+                Priority distribution of all tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              {totalTasks > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={tasksByPriority}>
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No tasks yet
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Active Projects
+              </CardTitle>
+              <FolderKanban className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalProjects}</div>
+              <Link href="/projects">
+                <Button variant="link" className="px-0 h-auto">
+                  View all projects →
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Team Members
+              </CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{members.length}</div>
+              <Link href="/settings/members">
+                <Button variant="link" className="px-0 h-auto">
+                  Manage members →
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Completion Rate
+              </CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{completionRate}%</div>
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex-1 bg-muted rounded-full h-2">
+                  <div
+                    className="bg-green-600 h-2 rounded-full transition-all"
+                    style={{ width: `${completionRate}%` }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </main>
+    </AuthGuard>
   );
 }

@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "tauri-nextjs-shadcn-boilerplate",
+  "productName": "All. Done",
   "version": "0.1.0",
-  "identifier": "com.tauri-nextjs-shadcn-boilerplate.dev",
+  "identifier": "com.alldone.app",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "tauri-nextjs-shadcn-boilerplate",
+        "title": "All. Done",
         "width": 800,
         "height": 600,
         "resizable": true,
